@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="sm_crm_lead_dashboard.Dashboard">
+        <div class="sm_crm_dashboard o_action">
+            <div class="sm_crm_header">
+                <div class="sm_crm_title">
+                    <i class="fa fa-dashboard"/>
+                    <span>CRM Lead Dashboard</span>
+                </div>
+                <div class="sm_crm_filters">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" t-on-click="resetLayout">
+                        <i class="fa fa-refresh"/> Reset
+                    </button>
+                    <div class="sm_crm_dropdown sm_crm_layout_select">
+                        <button type="button" class="btn btn-sm btn-outline-secondary sm_crm_dropdown_button" t-on-click="() => this.toggleDropdown('layout')">
+                            <span t-out="layoutLabel()"/>
+                            <i class="fa fa-chevron-down"/>
+                        </button>
+                        <div t-if="state.openDropdown === 'layout'" class="sm_crm_dropdown_menu">
+                            <t t-foreach="layoutOptions()" t-as="option" t-key="option[0]">
+                                <button type="button" t-att-class="option[0] === state.layoutPreset ? 'active' : ''" t-on-click="() => this.selectLayoutPreset(option[0])" t-out="option[1]"/>
+                            </t>
+                        </div>
+                    </div>
+                    <div class="sm_crm_dropdown sm_crm_period_select">
+                        <button type="button" class="btn btn-sm btn-outline-secondary sm_crm_dropdown_button" t-on-click="() => this.toggleDropdown('period')">
+                            <span t-out="periodLabel()"/>
+                            <i class="fa fa-chevron-down"/>
+                        </button>
+                        <div t-if="state.openDropdown === 'period'" class="sm_crm_dropdown_menu">
+                            <t t-foreach="periodOptions()" t-as="option" t-key="option[0]">
+                                <button type="button" t-att-class="option[0] === state.period ? 'active' : ''" t-on-click="() => this.selectPeriod(option[0])" t-out="option[1]"/>
+                            </t>
+                        </div>
+                    </div>
+                    <input type="date" class="form-control form-control-sm" t-att-value="state.dateFrom" t-on-change="onDateFromChange"/>
+                    <input type="date" class="form-control form-control-sm" t-att-value="state.dateTo" t-on-change="onDateToChange"/>
+                </div>
+            </div>
+
+            <div t-if="state.loading" class="sm_crm_loading">
+                <div class="spinner-border text-primary" role="status"/>
+            </div>
+
+            <div t-if="!state.loading and state.data" class="sm_crm_body">
+                <div class="sm_crm_kpis">
+                    <button type="button" class="sm_crm_kpi" t-on-click="openLeads">
+                        <span>Leads</span>
+                        <strong t-out="state.data.kpis.lead_count"/>
+                        <small t-att-class="trendClass(state.data.kpis.lead_change)">
+                            <i t-att-class="'fa ' + trendIcon(state.data.kpis.lead_change)"/> <t t-out="abs(state.data.kpis.lead_change)"/>%
+                        </small>
+                    </button>
+                    <button type="button" class="sm_crm_kpi" t-on-click="openOpportunities">
+                        <span>Opportunities</span>
+                        <strong t-out="state.data.kpis.opportunity_count"/>
+                        <small t-att-class="trendClass(state.data.kpis.opportunity_change)">
+                            <i t-att-class="'fa ' + trendIcon(state.data.kpis.opportunity_change)"/> <t t-out="abs(state.data.kpis.opportunity_change)"/>%
+                        </small>
+                    </button>
+                    <button type="button" class="sm_crm_kpi" t-on-click="openOpportunities">
+                        <span>Expected Revenue</span>
+                        <strong t-out="formatCurrency(state.data.kpis.expected_revenue)"/>
+                        <small t-att-class="trendClass(state.data.kpis.expected_change)">
+                            <i t-att-class="'fa ' + trendIcon(state.data.kpis.expected_change)"/> <t t-out="abs(state.data.kpis.expected_change)"/>%
+                        </small>
+                    </button>
+                    <button type="button" class="sm_crm_kpi" t-on-click="openWon">
+                        <span>Won Revenue</span>
+                        <strong t-out="formatCurrency(state.data.kpis.won_revenue)"/>
+                        <small t-att-class="trendClass(state.data.kpis.won_change)">
+                            <i t-att-class="'fa ' + trendIcon(state.data.kpis.won_change)"/> <t t-out="abs(state.data.kpis.won_change)"/>%
+                        </small>
+                    </button>
+                    <button type="button" class="sm_crm_kpi" t-on-click="openWon">
+                        <span>Conversion</span>
+                        <strong><t t-out="state.data.kpis.conversion_rate"/>%</strong>
+                        <small><t t-out="state.data.kpis.won_count"/> won / <t t-out="state.data.kpis.opportunity_count"/> opportunities</small>
+                    </button>
+                    <button type="button" class="sm_crm_kpi sm_crm_kpi_warning" t-on-click="openOverdue">
+                        <span>Overdue</span>
+                        <strong t-out="state.data.kpis.overdue_count"/>
+                        <small><t t-out="state.data.kpis.average_probability"/>% avg probability</small>
+                    </button>
+                </div>
+
+                <div class="sm_crm_grid">
+                    <t t-foreach="state.order" t-as="panel" t-key="panel">
+                        <t t-set="layout" t-value="state.layout[panel]"/>
+                        <section class="sm_crm_panel"
+                                 draggable="true"
+                                 t-attf-style="grid-column: span {{layout.cols}}; grid-row: span {{layout.rows}};"
+                                 t-on-dragstart="(ev) => this.onDragStart(ev, panel)"
+                                 t-on-dragover.prevent="() => {}"
+                                 t-on-drop="(ev) => this.onDrop(ev, panel)">
+                            <header>
+                                <span t-if="state.editingTitle !== panel" class="sm_crm_panel_title">
+                                    <i class="fa fa-grip-vertical"/> <t t-out="title(panel)"/>
+                                </span>
+                                <input t-if="state.editingTitle === panel"
+                                       class="sm_crm_title_input"
+                                       type="text"
+                                       t-att-value="title(panel)"
+                                       t-on-input="(ev) => this.onTitleInput(panel, ev)"
+                                       t-on-keydown="(ev) => this.onTitleKeydown(panel, ev)"
+                                       t-on-blur="() => this.saveTitle(panel)"
+                                       autofocus="autofocus"/>
+                                <div class="sm_crm_size">
+                                    <button t-if="state.editingTitle !== panel" type="button" title="Rename" t-on-click="() => this.startTitleEdit(panel)"><i class="fa fa-pencil"/></button>
+                                    <button t-if="state.editingTitle === panel" type="button" title="Save title" t-on-click="() => this.saveTitle(panel)"><i class="fa fa-check"/></button>
+                                    <button type="button" title="Small" t-on-click="() => this.resize(panel, 4, 2)"><i class="fa fa-compress"/></button>
+                                    <button type="button" title="Wide" t-on-click="() => this.resize(panel, 8, 2)"><i class="fa fa-arrows-h"/></button>
+                                    <button type="button" title="Full" t-on-click="() => this.resize(panel, 12, 2)"><i class="fa fa-arrows-alt"/></button>
+                                </div>
+                            </header>
+                            <div class="sm_crm_panel_body">
+                                <canvas t-if="panel === 'trend'" t-ref="trendCanvas"/>
+                                <canvas t-if="panel === 'stage'" t-ref="stageCanvas"/>
+                                <canvas t-if="panel === 'status'" t-ref="statusCanvas"/>
+                                <canvas t-if="panel === 'sources'" t-ref="sourcesCanvas"/>
+                                <canvas t-if="panel === 'teams'" t-ref="teamsCanvas"/>
+                                <canvas t-if="panel === 'salespeople'" t-ref="salespeopleCanvas"/>
+                                <canvas t-if="panel === 'campaigns'" t-ref="campaignsCanvas"/>
+
+                                <div t-if="panel === 'formulas'" class="sm_crm_formulas">
+                                    <div>
+                                        <span>Weighted Forecast</span>
+                                        <strong t-out="formatCurrency(state.data.formula_kpis.weighted_forecast)"/>
+                                        <small t-out="state.data.formula_kpis.weighted_formula"/>
+                                    </div>
+                                    <div>
+                                        <span>Average Deal Size</span>
+                                        <strong t-out="formatCurrency(state.data.formula_kpis.avg_deal_size)"/>
+                                        <small t-out="state.data.formula_kpis.avg_deal_formula"/>
+                                    </div>
+                                    <div>
+                                        <span>Win/Loss Ratio</span>
+                                        <strong t-out="state.data.formula_kpis.win_loss_ratio"/>
+                                        <small t-out="state.data.formula_kpis.win_loss_formula"/>
+                                    </div>
+                                    <div>
+                                        <span>Pipeline to Won</span>
+                                        <strong t-out="state.data.formula_kpis.pipeline_to_won"/>
+                                        <small t-out="state.data.formula_kpis.pipeline_formula"/>
+                                    </div>
+                                </div>
+
+                                <div t-if="panel === 'pivot'" class="sm_crm_pivot">
+                                    <table class="table table-sm table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Stage</th>
+                                                <th class="text-end">Leads</th>
+                                                <th class="text-end">Opps</th>
+                                                <th class="text-end">Expected</th>
+                                                <th class="text-end">Weighted</th>
+                                                <th class="text-end">Won</th>
+                                                <th class="text-end">Lost</th>
+                                                <th class="text-end">Conversion</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <t t-foreach="state.data.pivot_rows" t-as="row" t-key="row.stage">
+                                                <tr>
+                                                    <td><strong t-out="row.stage"/></td>
+                                                    <td class="text-end" t-out="row.lead_count"/>
+                                                    <td class="text-end" t-out="row.opportunity_count"/>
+                                                    <td class="text-end" t-out="formatCurrency(row.expected_revenue)"/>
+                                                    <td class="text-end" t-out="formatCurrency(row.prorated_revenue)"/>
+                                                    <td class="text-end" t-out="row.won_count"/>
+                                                    <td class="text-end" t-out="row.lost_count"/>
+                                                    <td class="text-end"><t t-out="row.conversion_rate"/>%</td>
+                                                </tr>
+                                            </t>
+                                            <tr t-if="!state.data.pivot_rows.length">
+                                                <td colspan="8" class="text-center text-muted">No CRM records</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div t-if="panel === 'custom'" class="sm_crm_custom">
+                                    <div class="sm_crm_custom_toolbar">
+                                        <div class="sm_crm_dropdown">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary sm_crm_dropdown_button" t-on-click="() => this.toggleDropdown('custom_groupby')">
+                                                <span t-out="customGroupbyLabel()"/>
+                                                <i class="fa fa-chevron-down"/>
+                                            </button>
+                                            <div t-if="state.openDropdown === 'custom_groupby'" class="sm_crm_dropdown_menu">
+                                                <t t-foreach="customGroupbyOptions()" t-as="option" t-key="option[0]">
+                                                    <button type="button" t-att-class="option[0] === state.customGroupby ? 'active' : ''" t-on-click="() => this.selectCustomGroupby(option[0])" t-out="option[1]"/>
+                                                </t>
+                                            </div>
+                                        </div>
+                                        <div class="sm_crm_dropdown">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary sm_crm_dropdown_button" t-on-click="() => this.toggleDropdown('custom_measure')">
+                                                <span t-out="customMeasureLabel()"/>
+                                                <i class="fa fa-chevron-down"/>
+                                            </button>
+                                            <div t-if="state.openDropdown === 'custom_measure'" class="sm_crm_dropdown_menu">
+                                                <t t-foreach="customMeasureOptions()" t-as="option" t-key="option[0]">
+                                                    <button type="button" t-att-class="option[0] === state.customMeasure ? 'active' : ''" t-on-click="() => this.selectCustomMeasure(option[0])" t-out="option[1]"/>
+                                                </t>
+                                            </div>
+                                        </div>
+                                        <div class="sm_crm_dropdown">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary sm_crm_dropdown_button" t-on-click="() => this.toggleDropdown('custom_chart')">
+                                                <span t-out="customChartLabel()"/>
+                                                <i class="fa fa-chevron-down"/>
+                                            </button>
+                                            <div t-if="state.openDropdown === 'custom_chart'" class="sm_crm_dropdown_menu">
+                                                <t t-foreach="customChartOptions()" t-as="option" t-key="option[0]">
+                                                    <button type="button" t-att-class="option[0] === state.customChartType ? 'active' : ''" t-on-click="() => this.selectCustomChartType(option[0])" t-out="option[1]"/>
+                                                </t>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="sm_crm_custom_chart">
+                                        <canvas t-ref="customCanvas"/>
+                                    </div>
+                                </div>
+
+                                <div t-if="panel === 'lost'" class="sm_crm_lost">
+                                    <t t-foreach="state.data.lost_reasons" t-as="reason" t-key="reason.name">
+                                        <div>
+                                            <span t-out="reason.name"/>
+                                            <strong t-out="reason.count"/>
+                                        </div>
+                                    </t>
+                                    <div t-if="!state.data.lost_reasons.length" class="sm_crm_empty">No lost opportunities</div>
+                                </div>
+
+                                <div t-if="panel === 'recent'" class="sm_crm_recent">
+                                    <table class="table table-sm table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Record</th>
+                                                <th>Customer</th>
+                                                <th>Salesperson</th>
+                                                <th>Stage</th>
+                                                <th>Status</th>
+                                                <th class="text-end">Expected</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <t t-foreach="state.data.recent_records" t-as="record" t-key="record.id">
+                                                <tr t-on-click="() => this.openRecord(record.id)">
+                                                    <td><strong t-out="record.name"/><br/><small t-out="record.type"/></td>
+                                                    <td t-out="record.customer"/>
+                                                    <td t-out="record.salesperson"/>
+                                                    <td t-out="record.stage"/>
+                                                    <td t-out="record.status"/>
+                                                    <td class="text-end" t-out="formatCurrency(record.expected_revenue)"/>
+                                                </tr>
+                                            </t>
+                                            <tr t-if="!state.data.recent_records.length">
+                                                <td colspan="6" class="text-center text-muted">No CRM records</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </section>
+                    </t>
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>
