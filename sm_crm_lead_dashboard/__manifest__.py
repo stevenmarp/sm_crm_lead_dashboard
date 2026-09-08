@@ -49,8 +49,10 @@ Main Features
         'views/dashboard_action.xml',
     ],
     'images': [
+        'static/description/banner.gif',
         'static/description/crm_lead_dashboard_overview.png',
     ],
+    'icon': 'static/description/icon.png',
     'assets': {
         'web.assets_backend': [
             'sm_crm_lead_dashboard/static/src/scss/dashboard.scss',
